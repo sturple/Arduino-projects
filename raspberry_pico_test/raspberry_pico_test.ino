@@ -5,9 +5,7 @@
 #include <Adafruit_BME280.h>
 #include "ST25DVSensor.h"
 #include <Adafruit_PN532.h>
-#include <OPTIGATrustM.h>
-#define SUPPRESSCOLLORS
-#include "fprint.h"
+
 
 
 
@@ -31,35 +29,20 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) delay(10);
   setup_led();
-  //setup_st25dv();
+  setup_st25dv();
   //setup_bme();
   //setup_pn532();
-  trustm_setup();
 }
 
 void loop() {
   do_led();
-  //do_st25dv();
+  do_st25dv();
   //do_bme();
   //do_pn532();
-  trustm_loop();
 }
 
 
-void trustm_setup() {
-  uint32_t ret = 0;
-  printGreen("Begin Trust ... ");
-  ret = trustM.begin();
-  if (ret) {
-    printlnRed("Failed");
-    while (true)
-      ;
-  }
-  printlnGreen("OK");
-}
 
-void trustm_loop() {
-}
 
 void setup_pn532() {
   nfc.begin();
