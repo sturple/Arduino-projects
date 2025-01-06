@@ -1,0 +1,7 @@
+
+
+
+ProgressBar {
+    width: 0.25fr;
+    dock: top;
+}
