@@ -5,9 +5,7 @@
 #include <Adafruit_BME280.h>
 #include "ST25DVSensor.h"
 #include <Adafruit_PN532.h>
-
-
-
+#include "NRFLite.h"
 
 
 #define LED 25
@@ -24,14 +22,33 @@ Adafruit_BME280 bme;
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 ST25DV st25dv(12, -1, &Wire);
 
+const static uint8_t RADIO_ID = 0;
+const static uint8_t DESTINATION_RADIO_ID = 0; // Id of the radio we will transmit to.
+const static uint8_t PIN_RADIO_CE = 17;
+const static uint8_t PIN_RADIO_CSN = 28;
+const static uint8_t PIN_RADIO_IRQ = 27;
+const static uint8_t PIN_RADIO_MOSI = 19;
+const static uint8_t PIN_RADIO_MISO = 16;
+const static uint8_t PIN_RADIO_SCK = 18;
+
+struct RadioPacket // Any packet up to 32 bytes can be sent.
+{
+    uint8_t FromRadioId;
+    uint32_t OnTimeMillis;
+    uint32_t FailedTxCount;
+};
+
+NRFLite _radio;
+RadioPacket _radioData;
 void setup() {
 
   Serial.begin(115200);
   while (!Serial) delay(10);
   setup_led();
-  setup_st25dv();
+  //setup_st25dv();
   //setup_bme();
   //setup_pn532();
+  setup_nRF24L01();
 }
 
 void loop() {
@@ -39,9 +56,40 @@ void loop() {
   //do_st25dv();
   //do_bme();
   //do_pn532();
+  do_nRF24L01();
 }
 
+void setup_nRF24L01() {
+  Serial.println("Setting up 2.4 Wireless device nR24L01");
+  // if (!_radio.init(RADIO_ID, PIN_RADIO_CE, PIN_RADIO_CSN))
+  //   {
+  //       Serial.println("Cannot communicate with radio");
+  //       //while (1); // Wait here forever.
+  //   }
+  // else {
+  //   Serial.println('radio ok');
+  // }
+  //   _radioData.FromRadioId = RADIO_ID;
+}
 
+void do_nRF24L01() {
+  Serial.println("doing 2.4 Wireless device");
+  // _radioData.OnTimeMillis = millis();
+  // Serial.print("Sending ");
+  // Serial.print(_radioData.OnTimeMillis);
+  // Serial.print(" ms");
+  // if (_radio.send(DESTINATION_RADIO_ID, &_radioData, sizeof(_radioData))) // Note how '&' must be placed in front of the variable name.
+  // {
+  //     Serial.println("...Success");
+  // }
+  // else
+  // {
+  //     Serial.println("...Failed");
+  //     _radioData.FailedTxCount++;
+  // }
+
+  // delay(1000);
+}
 
 
 void setup_pn532() {
