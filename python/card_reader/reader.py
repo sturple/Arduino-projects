@@ -1,57 +1,27 @@
-"""
-Code browser example.
-
-Run with:
-
-    python code_browser.py PATH
-"""
-
 from __future__ import annotations
-# For Interface
-import sys
-
-
-
 # For application
-
-from threading import Thread
 from pn532 import PN532
-import time
-from rich.syntax import Syntax
-from rich.traceback import Traceback
+from textual.timer import Timer
 from textual import events, on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, VerticalScroll
-from textual.reactive import reactive, var
+from textual.reactive import reactive
+from textual.containers import Container, VerticalScroll, Center, Middle
+from textual.widget import Widget
 from textual.widgets import (
     Button,
     ContentSwitcher,
     DataTable,
     Footer,
     Header,
+    ProgressBar,
     Input,
     Label,
-    ListItem,
-    ListView,
-    MarkdownViewer,
-    OptionList,
-    ProgressBar,
-    RadioSet,
-    RichLog,
-    Select,
-    SelectionList,
-    Switch,
-    TextArea,
-
-    Log,
+    Select
 )
 
 
-            
-
-
-class CardReader(App):
+class CardReader(Widget):
     """Textual code browser app."""
     _log = None
     _pn532 = None
@@ -59,151 +29,123 @@ class CardReader(App):
     _loop_event = None
     _uid = None
 
-
     CSS_PATH = "reader.tcss"
     BINDINGS = [
         Binding(
-            "ctrl+e",
-            "edit_card_info",
-            "Edit Card Information",
-            tooltip="Edit Card Information",
+            # "ctrl+r",
+            "r",
+            "read_all_card_data",
+            "Read Card Data",
+            tooltip="Read Card Data",
         ),
         Binding(
-            "ctrl+r",
-            "read_card_info",
-            "Read Card Information",
-            tooltip="Read Card Information",
-        ),
-        Binding(
-            "ctrl+m",
+            "e",
             "edit_card_data",
             "Edit Card Data",
             tooltip="Edit Card Data",
         ),
-        Binding(
-            "ctrl+d",
-            "read_card_data",
-            "Read Card Data",
-            tooltip="Read Card Data",
-        )
     ]
 
-    def print_hex_data(self, data)->None:
-        try:
-            self._log.write_line(" ")
-            for i in data:
-                self._log.write(hex(i) )
-                self._log.write(' ')
-            self._log.write_line(" ")
-        except:
-            """exception"""
-            self._log.write_line("Error with the byte data")
 
+    # Utility function which creates a tuple of the hex data / byte data from the bytearray from the Mifare card
+    def get_hex_byte_data(self, data) -> tuple:
+        """this gets lists of both the bytes, and the ascii"""
+        hex_data = []
+        byte_data = []
+        for i in data:
+            hex_data.append(hex(i))
+            mychar = '.' if i == 0 else chr(i)
+            byte_data.append(mychar)
 
-    async def read_card_block(self, current_block) -> None:
-        """Read the current block"""
-        return self._pn532.read_card_block(current_block)
+        return (hex_data, byte_data)
 
+    def create_row(self, current_sector, current_block, table, data):
+        """creates a row in datatable"""
+        hex_data, byte_data = self.get_hex_byte_data(data)
+        block = str(current_block)
+        text_column = ''.join(byte_data)
+        text_column.replace('', '.')
+        table.add_row(str(current_sector), str(block), text_column, *hex_data)
 
-    async def read_card(self) -> None:
-        current_block = 5
+    def read_card_sector(self, current_sector=1) -> list:
         self._uid = self._pn532.read_card()
-        self.print_hex_data(self._uid)
         if self._uid is not None:
-            auth = self._pn532.authenticate_card_block(self._uid, current_block)
-            if auth:
-                self._log.write_line("Authenticated")
-                data = await self.read_card_block(current_block)
-                self.print_hex_data(data)
-            else:
-                self._log.write_line("Not Authenticated")
+            return self._pn532.read_card_sector(self._uid, current_sector)
+            
+
+    async def read_all_card_sectors(self, table) -> None:
+        """all sectors"""
+        self.query_one(ProgressBar).update(total=16, progress=0)
+        for x in list(range(0, 16)):
+            data = self.read_card_sector(x)
+            self.create_row(x, 0, table, data[2][0])
+            self.create_row(x, 1, table, data[2][1])
+            self.create_row(x, 2, table, data[2][2])
+            self.create_row(x, 'trl', table, data[1])
+            self.query_one(ProgressBar).advance(1)
+
+    # Action call back from the 'r' key shortcut to read.
+    async def action_read_all_card_data(self) -> None:
+        self.query_one(ContentSwitcher).current = 'read-card-all'
+        self.notify("Please scan your RFID/NFC card...", title="Scan Card")
+        table = self.query_one(DataTable)
+        table.focus()
+        table.clear(columns=True)
+        table.add_columns("Sec", "Blk", "Text", "B0", "B1", "B2", "B3", "B4",
+                          "B5", "B6", "B7", "B8", "B9", "B10", "B11", "B12", "B13", "B14", "B15")
+        self.run_worker(self.read_all_card_sectors(
+            table), exclusive=True, thread=True)
 
 
-    @on(Button.Pressed, "#read_card_info")
-    async def action_read_card_info(self) -> None:
-        self._log.write_line("Please scan your RFID/NFC card...")
-        self.run_worker(self.read_card(), exclusive=True, thread=True)
-
-
-    @on(Button.Pressed, "#edit_card_info")
-    def action_edit_card_info(self) -> None:
-        self._log.write_line('edit card info')
-
-
-    @on(Button.Pressed, "#read_card_data")
-    def action_read_card_data(self) -> None:
-        self._log.write_line('read card data')
-        self.query_one(ContentSwitcher).current = 'markdown'
-
-    @on(Button.Pressed, "#edit_card_data")
+    # Action call back from the 'e' key shortcut to edit
     def action_edit_card_data(self) -> None:
-        self._log.write_line('edit card data')
-        self.query_one(ContentSwitcher).current = 'data-table'
+        """binding to edit card data"""
+        self.query_one(ContentSwitcher).current = 'edit-card'
 
-    def on_ready(self) -> None:
-        self._log = self.query_one(Log)
-        self._pn532 = PN532()
-        ic, ver, rev, support = self._pn532.get_version()
-        self._log.write_line("Found PN532 with firmware version:{0}.{1} ID: {2} Support: {3} ".format(ver, rev, ic, support))
+    # Button submit for the update Mifare card data.
+    @on(Button.Pressed, "#write-card-data")
+    def action_write_card_data(self) -> None:
+        """submits card data"""
+        print('button pressed')
 
+    # Select change to get the new data for editing.
+    @on(Select.Changed, "#write-card-select")
+    def select_changed(self, event: Select.Changed) -> None:
+        print(event.value)
+        # self.run_worker(self.read_all_card_sectors(table), exclusive=True, thread=True)
+        self.title = str(event.value)
 
+    # Textual Widget inherit function, which composes the UI.
     def compose(self) -> ComposeResult:
         """Compose our UI."""
-        yield Header()
-        yield Container(
-            Container(
-                Button("Edit Card Information", id="edit_card_info", variant="primary"),
-                Button("Read Card Information", id="read_card_info", variant="primary"),
-                Button("Edit Card Data", id="edit_card_data", variant="primary"),
-                Button("Read Card Data", id="read_card_data", variant="primary"),
-                id="button-panel",
-            ),
-            Log(highlight=True, id="Logger"),
-            id="control-panel")
-        with ContentSwitcher(initial="data-table", id="data-panel"):  
+        with ContentSwitcher(initial="edit-card"):
             yield VerticalScroll(
-                Button("data-table",variant="primary"),
-                id="data-table")
+                ProgressBar(total=16, show_eta=False),
+                DataTable(id="card-data-table"),
+                id="read-card-all"
+            )
             yield VerticalScroll(
-                Button("markdown",variant="primary"),
-                id="markdown")
-        yield Footer()
+                Select.from_values(list(range(0, 16)), id="write-card-select"),
+                Button("Submit", id="write-card-data"),
+                id="edit-card"
+            )
 
+    # Textual Widget inherit function, which runs when the widget is mounted.
     def on_mount(self) -> None:
         """on mount"""
-
-class ThreadWithReturnValue(Thread):
-    
-    def __init__(self, group=None, target=None, name=None,
-                 args=(), kwargs={}, Verbose=None):
-        Thread.__init__(self, group, target, name, args, kwargs)
-        self._return = None
-
-    def run(self):
-        if self._target is not None:
-            self._return = self._target(*self._args,
-                                                **self._kwargs)
-    def join(self, *args):
-        Thread.join(self, *args)
-        return self._return
+        self._pn532 = PN532()
+        ic, ver, rev, support = self._pn532.get_version()
+        print("Found PN532 with firmware version:{0}.{1} ID: {2} Support: {3} ".format(
+            ver, rev, ic, support))
 
 
-class BaseThread(Thread):
-    def __init__(self, callback=None, callback_args=None, *args, **kwargs):
-        target = kwargs.pop('target')
-        super(BaseThread, self).__init__(target=self.target_with_callback, *args, **kwargs)
-        self.callback = callback
-        self.method = target
-        self.callback_args = callback_args
-
-    def target_with_callback(self):
-        self.method()
-        if self.callback is not None:
-            self.callback(*self.callback_args)
+class CardReaderApp(App):
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield CardReader()
+        yield Footer()
 
 
 if __name__ == "__main__":
-    CardReader().run()
-    
-    
-
+    app = CardReaderApp()
+    app.run()

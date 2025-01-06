@@ -1,29 +1,7 @@
- Log {
 
-        dock: bottom;
-        height: 0.5fr;
 
-    }
 
-#control-panel {
-    width: 0.5fr;
-    height: 1fr;
-    dock: left;
-    border: solid white;
-}
-
-#data-panel {
-    width: 0.5fr;
-    height: 1fr;
-    dock: right;
-}
-
-Button {
-    width: 0.5fr;
-}
-
-ContentSwitcher {
-    border: solid red;
-    width: 0.5fr;
-    dock: right;
+ProgressBar {
+    width: 0.25fr;
+    dock: top;
 }

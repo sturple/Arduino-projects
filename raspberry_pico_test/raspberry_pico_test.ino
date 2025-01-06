@@ -36,7 +36,7 @@ void setup() {
 
 void loop() {
   do_led();
-  do_st25dv();
+  //do_st25dv();
   //do_bme();
   //do_pn532();
 }
