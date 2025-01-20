@@ -29,11 +29,26 @@ class Fram():
         
     def _print(self, msg)-> None:
         if self._debug:
-            print(msg)    
+            print(msg)
 
     def diagnostic(self) -> None:
-   
-        self._print(self.read(0x0,0x7000 ))
+        """runs diagnostic, to make sure it is working"""
+        import qrcode
+        import io
+        img = qrcode.make('http://pi-dev0.local')
+        type(img)  # qrcode.image.pil.PilImage
+
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='PNG')
+        img_byte_arr = img_byte_arr.getvalue()
+        self.write(0x100, img_byte_arr)
+
+        with open("qrcode.png", "wb") as binary_file:
+            binary_file.write(self.read(0x100,len(img_byte_arr)))
+    
+        
+        # Do stuff with byte.
+        #self._print(self.read(0x0,0x7000 ))
         #self._print(self.write(0x100,b'shawn turple\x00'))
 
 
